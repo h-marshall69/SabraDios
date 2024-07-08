@@ -153,6 +153,44 @@ class Player:
         pygame.draw.rect(screen, WHITE, fill_rect)
         pygame.draw.rect(screen, WHITE, outline_rect, 2)
 
+class Menu:
+    def __init__(self, game):
+        self.game = game
+        self.screen = game.screen
+        self.font = pygame.font.Font(None, 74)
+        self.options = ["Play", "Quit"]
+        self.selected = 0
+
+    def display_menu(self):
+        self.screen.fill(BLACK)
+        for i, option in enumerate(self.options):
+            color = WHITE if i == self.selected else RED
+            text = self.font.render(option, True, color)
+            rect = text.get_rect()
+            rect.center = (WIDTH // 2, HEIGHT // 2 + i * 100)
+            self.screen.blit(text, rect)
+        pygame.display.flip()
+
+    def run(self):
+        while True:
+            self.display_menu()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.game.running = False
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        self.selected = (self.selected - 1) % len(self.options)
+                    elif event.key == pygame.K_DOWN:
+                        self.selected = (self.selected + 1) % len(self.options)
+                    elif event.key == pygame.K_RETURN:
+                        if self.selected == 0:
+                            self.game.playing = True
+                            return
+                        elif self.selected == 1:
+                            self.game.running = False
+                            return
+
 class Game:
     def __init__(self):
         pygame.init()
@@ -161,20 +199,31 @@ class Game:
         self.clock = pygame.time.Clock()
         self.player = Player()
         self.boss = Boss()
+        self.menu = Menu(self)
         self.running = True
+        self.playing = False
 
     def run(self):
         while self.running:
+            if self.playing:
+                self.game_loop()
+            else:
+                self.menu.run()
+        pygame.quit()
+
+    def game_loop(self):
+        while self.playing:
             self.handle_events()
             self.update()
             self.draw()
             self.clock.tick(FPS)
-        pygame.quit()
+        self.reset_game()
 
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+                self.playing = False
 
     def update(self):
         self.player.handle_keys()
@@ -206,11 +255,15 @@ class Game:
 
     def boss_destroy(self):
         print("Boss destruido!")
-        self.running = False
+        self.playing = False
 
     def player_destroy(self):
         print("Player destruido!")
-        self.running = False
+        self.playing = False
+
+    def reset_game(self):
+        self.player = Player()
+        self.boss = Boss()
 
 if __name__ == "__main__":
     game = Game()
