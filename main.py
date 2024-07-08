@@ -2,8 +2,8 @@ import pygame
 import math
 
 # Configuraciones del juego
-WIDTH = 800
-HEIGHT = 600
+WIDTH = 1366
+HEIGHT = 768
 FPS = 60
 
 # Colores
@@ -35,29 +35,26 @@ class Boss:
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH // 2, HEIGHT // 2)
         self.speed = 2
-        self.detection_radius = 300
+        self.detection_radius = 500
         self.horizontal = 0
         self.vertical = 0
-        self.life = 200
-        self.damage = 50
+        self.life = 2500
+        self.max_life = self.life
+        self.damage = 20
         self.bullets = []
         self.shoot_cooldown = 0
         self.active = False
 
     def update(self, player_rect):
-        # Calcular la distancia al jugador
         distance_x = player_rect.centerx - self.rect.centerx
         distance_y = player_rect.centery - self.rect.centery
         distance = math.sqrt(distance_x**2 + distance_y**2)
         
-        # Verificar si el jugador está dentro del radio de detección
         if distance <= self.detection_radius:
             self.active = True
-            # Normalizar la dirección hacia el jugador
             if distance != 0:
                 self.horizontal = distance_x / distance
                 self.vertical = distance_y / distance
-            # Mover hacia el jugador
             self.rect.x += self.speed * self.horizontal
             self.rect.y += self.speed * self.vertical
         else:
@@ -66,18 +63,15 @@ class Boss:
             self.vertical = 0
 
         if self.active:
-            # Disparar proyectiles en patrones
             self.shoot_cooldown -= 1
             if self.shoot_cooldown <= 0:
                 self.shoot_pattern()
                 self.shoot_cooldown = FPS
 
-        # Actualizar los proyectiles
         for bullet in self.bullets:
             bullet.update()
 
     def shoot_pattern(self):
-        # Disparar en 8 direcciones (arriba, abajo, izquierda, derecha y diagonales)
         directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (0.707, 0.707), (-0.707, 0.707), (0.707, -0.707), (-0.707, -0.707)]
         for direction in directions:
             bullet = Bullet(self.rect.centerx, self.rect.centery, direction, color=RED, damage=self.damage)
@@ -88,6 +82,16 @@ class Boss:
         screen.blit(self.image, self.rect)
         for bullet in self.bullets:
             bullet.draw(screen)
+        self.draw_health_bar(screen)
+
+    def draw_health_bar(self, screen):
+        bar_width = 200
+        bar_height = 20
+        fill = (self.life / self.max_life) * bar_width
+        outline_rect = pygame.Rect(WIDTH - bar_width - 10, 10, bar_width, bar_height)
+        fill_rect = pygame.Rect(WIDTH - bar_width - 10, 10, fill, bar_height)
+        pygame.draw.rect(screen, RED, fill_rect)
+        pygame.draw.rect(screen, WHITE, outline_rect, 2)
 
 class Player:
     def __init__(self):
@@ -99,7 +103,8 @@ class Player:
         self.horizontal = 0
         self.vertical = 0
         self.life = 200
-        self.damage = 100
+        self.max_life = self.life
+        self.damage = 50
         self.bullets = []
         self.shooting = False
 
@@ -108,7 +113,6 @@ class Player:
         self.horizontal = keys[pygame.K_d] - keys[pygame.K_a]
         self.vertical = keys[pygame.K_s] - keys[pygame.K_w]
 
-        # Normalizar el movimiento
         if self.horizontal != 0 or self.vertical != 0:
             magnitude = math.sqrt(self.horizontal ** 2 + self.vertical ** 2)
             self.horizontal /= magnitude
@@ -138,6 +142,16 @@ class Player:
         screen.blit(self.image, self.rect)
         for bullet in self.bullets:
             bullet.draw(screen)
+        self.draw_health_bar(screen)
+
+    def draw_health_bar(self, screen):
+        bar_width = 200
+        bar_height = 20
+        fill = (self.life / self.max_life) * bar_width
+        outline_rect = pygame.Rect(10, 10, bar_width, bar_height)
+        fill_rect = pygame.Rect(10, 10, fill, bar_height)
+        pygame.draw.rect(screen, WHITE, fill_rect)
+        pygame.draw.rect(screen, WHITE, outline_rect, 2)
 
 class Game:
     def __init__(self):
@@ -176,7 +190,6 @@ class Game:
         pygame.display.flip()
 
     def check_collisions(self):
-        # Colisiones de las balas del jugador con el jefe
         for bullet in self.player.bullets:
             if self.boss.rect.colliderect(bullet.rect):
                 self.boss.life -= bullet.damage
@@ -184,7 +197,6 @@ class Game:
                 if self.boss.life <= 0:
                     self.boss_destroy()
 
-        # Colisiones de las balas del jefe con el jugador
         for bullet in self.boss.bullets:
             if self.player.rect.colliderect(bullet.rect):
                 self.player.life -= bullet.damage
@@ -194,12 +206,10 @@ class Game:
 
     def boss_destroy(self):
         print("Boss destruido!")
-        # Aquí puedes añadir la animación de destrucción del jefe
         self.running = False
 
     def player_destroy(self):
         print("Player destruido!")
-        # Aquí puedes añadir la animación de destrucción del jugador
         self.running = False
 
 if __name__ == "__main__":
