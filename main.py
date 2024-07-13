@@ -1,15 +1,18 @@
 import pygame
 import math
+import random
 
 # Configuraciones del juego
-WIDTH = 1366
-HEIGHT = 768
+WIDTH = 800
+HEIGHT = 600
 FPS = 60
 
 # Colores
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
 
 class Bullet:
     def __init__(self, x, y, direction, speed=10, color=WHITE, damage=50):
@@ -29,44 +32,35 @@ class Bullet:
         screen.blit(self.image, self.rect)
 
 class Boss:
-    def __init__(self):
-        self.image = pygame.Surface((200, 200))
+    def __init__(self, difficulty):
+        self.image = pygame.Surface((100, 100))
         self.image.fill(RED)
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH // 2, HEIGHT // 2)
-        self.speed = 2
-        self.detection_radius = 500
+        self.speed = 2 + difficulty
         self.horizontal = 0
         self.vertical = 0
-        self.life = 2500
+        self.life = 1000 + difficulty * 500
         self.max_life = self.life
-        self.damage = 20
+        self.damage = 20 + difficulty * 10
         self.bullets = []
-        self.shoot_cooldown = 0
-        self.active = False
+        self.shoot_cooldown = FPS  # Ajusta para disparar inmediatamente al inicio
 
     def update(self, player_rect):
         distance_x = player_rect.centerx - self.rect.centerx
         distance_y = player_rect.centery - self.rect.centery
         distance = math.sqrt(distance_x**2 + distance_y**2)
-        
-        if distance <= self.detection_radius:
-            self.active = True
-            if distance != 0:
-                self.horizontal = distance_x / distance
-                self.vertical = distance_y / distance
-            self.rect.x += self.speed * self.horizontal
-            self.rect.y += self.speed * self.vertical
-        else:
-            self.active = False
-            self.horizontal = 0
-            self.vertical = 0
 
-        if self.active:
-            self.shoot_cooldown -= 1
-            if self.shoot_cooldown <= 0:
-                self.shoot_pattern()
-                self.shoot_cooldown = FPS
+        if distance != 0:
+            self.horizontal = distance_x / distance
+            self.vertical = distance_y / distance
+        self.rect.x += self.speed * self.horizontal
+        self.rect.y += self.speed * self.vertical
+
+        self.shoot_cooldown -= 1
+        if self.shoot_cooldown <= 0:
+            self.shoot_pattern()
+            self.shoot_cooldown = FPS
 
         for bullet in self.bullets:
             bullet.update()
@@ -78,7 +72,6 @@ class Boss:
             self.bullets.append(bullet)
 
     def draw(self, screen):
-        pygame.draw.circle(screen, (255, 0, 0), self.rect.center, self.detection_radius, 1)
         screen.blit(self.image, self.rect)
         for bullet in self.bullets:
             bullet.draw(screen)
@@ -96,9 +89,9 @@ class Boss:
 class Player:
     def __init__(self):
         self.image = pygame.Surface((50, 50))
-        self.image.fill(WHITE)
+        self.image.fill(BLUE)
         self.rect = self.image.get_rect()
-        self.rect.center = (600, 600)
+        self.rect.center = (WIDTH // 2, HEIGHT - 50)
         self.speed = 5
         self.horizontal = 0
         self.vertical = 0
@@ -153,12 +146,29 @@ class Player:
         pygame.draw.rect(screen, WHITE, fill_rect)
         pygame.draw.rect(screen, WHITE, outline_rect, 2)
 
+class Enemy:
+    def __init__(self, x, y, speed, damage):
+        self.image = pygame.Surface((30, 30))
+        self.image.fill(GREEN)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.speed = speed
+        self.damage = damage
+
+    def update(self):
+        self.rect.y += self.speed
+        if self.rect.top > HEIGHT:
+            self.rect.bottom = 0
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
+
 class Menu:
     def __init__(self, game):
         self.game = game
         self.screen = game.screen
-        self.font = pygame.font.Font(None, 74)
-        self.options = ["Play", "Quit"]
+        self.font = pygame.font.Font(None, 50)
+        self.options = ["Play Easy", "Play Normal", "Play Hard", "Quit"]
         self.selected = 0
 
     def display_menu(self):
@@ -167,7 +177,7 @@ class Menu:
             color = WHITE if i == self.selected else RED
             text = self.font.render(option, True, color)
             rect = text.get_rect()
-            rect.center = (WIDTH // 2, HEIGHT // 2 + i * 100)
+            rect.center = (WIDTH // 2, HEIGHT // 2 + i * 50)
             self.screen.blit(text, rect)
         pygame.display.flip()
 
@@ -185,9 +195,18 @@ class Menu:
                         self.selected = (self.selected + 1) % len(self.options)
                     elif event.key == pygame.K_RETURN:
                         if self.selected == 0:
+                            self.game.difficulty = 0
                             self.game.playing = True
                             return
                         elif self.selected == 1:
+                            self.game.difficulty = 1
+                            self.game.playing = True
+                            return
+                        elif self.selected == 2:
+                            self.game.difficulty = 2
+                            self.game.playing = True
+                            return
+                        elif self.selected == 3:
                             self.game.running = False
                             return
 
@@ -195,13 +214,15 @@ class Game:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        pygame.display.set_caption("Souls-Like")
+        pygame.display.set_caption("Enhanced Pygame Game")
         self.clock = pygame.time.Clock()
         self.player = Player()
-        self.boss = Boss()
+        self.boss = None
         self.menu = Menu(self)
         self.running = True
         self.playing = False
+        self.difficulty = 0
+        self.enemies = []
 
     def run(self):
         while self.running:
@@ -212,6 +233,8 @@ class Game:
         pygame.quit()
 
     def game_loop(self):
+        self.boss = Boss(self.difficulty)
+        self.enemies = [Enemy(random.randint(0, WIDTH), random.randint(-100, -40), 2 + self.difficulty, 10) for _ in range(5)]
         while self.playing:
             self.handle_events()
             self.update()
@@ -230,12 +253,16 @@ class Game:
         self.player.handle_mouse()
         self.player.update()
         self.boss.update(self.player.rect)
+        for enemy in self.enemies:
+            enemy.update()
         self.check_collisions()
 
     def draw(self):
         self.screen.fill(BLACK)
         self.player.draw(self.screen)
         self.boss.draw(self.screen)
+        for enemy in self.enemies:
+            enemy.draw(self.screen)
         pygame.display.flip()
 
     def check_collisions(self):
@@ -253,17 +280,25 @@ class Game:
                 if self.player.life <= 0:
                     self.player_destroy()
 
+        for enemy in self.enemies:
+            if self.player.rect.colliderect(enemy.rect):
+                self.player.life -= enemy.damage
+                self.enemies.remove(enemy)
+                if self.player.life <= 0:
+                    self.player_destroy()
+
     def boss_destroy(self):
-        print("Boss destruido!")
+        print("Boss destroyed!")
         self.playing = False
 
     def player_destroy(self):
-        print("Player destruido!")
+        print("Player destroyed!")
         self.playing = False
 
     def reset_game(self):
         self.player = Player()
-        self.boss = Boss()
+        self.boss = None
+        self.enemies = []
 
 if __name__ == "__main__":
     game = Game()
